@@ -15,14 +15,11 @@ class CloudFormationAuthenticationRule < BaseRule
   end
 
   def audit_impl(cfn_model)
-    logical_resource_ids = []
-    cfn_model.raw_model['Resources'].each do |resource_name, resource|
-      unless resource['Metadata'].nil?
-        if !resource['Metadata']['AWS::CloudFormation::Authentication'].nil?
-          logical_resource_ids << resource_name
-        end
-      end
+    violating_auth = cfn_model.resources_by_type('AWS::CloudFormation::Authentication').select do |auth|
+      auth.accessKeyId.nil? && auth.password.nil? && auth.secretKey.nil?
     end
-    logical_resource_ids
+
+    violating_auth.map { |auth| violating_user.logical_resource_id }
   end
+
 end
