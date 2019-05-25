@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 require 'cfn-nag/violation'
 require_relative 'base'
 
 class S3BucketPublicReadWriteAclRule < BaseRule
-
   def rule_text
     'S3 Bucket should not have a public read-write acl'
   end
@@ -16,14 +17,10 @@ class S3BucketPublicReadWriteAclRule < BaseRule
   end
 
   def audit_impl(cfn_model)
-    logical_resource_ids = []
-
-    cfn_model.resources_by_type('AWS::S3::Bucket').each do |bucket|
-      if bucket.accessControl == 'PublicReadWrite'
-        logical_resource_ids << bucket.logical_resource_id
-      end
+    violating_buckets = cfn_model.resources_by_type('AWS::S3::Bucket').select do |bucket|
+      bucket.accessControl == 'PublicReadWrite'
     end
 
-    logical_resource_ids
+    violating_buckets.map(&:logical_resource_id)
   end
 end

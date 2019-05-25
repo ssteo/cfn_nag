@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 require 'cfn-nag/violation'
 require_relative 'base'
 
 class SqsQueuePolicyNotPrincipalRule < BaseRule
-
   def rule_text
     'SQS Queue policy should not allow Allow+NotPrincipal'
   end
@@ -20,6 +21,6 @@ class SqsQueuePolicyNotPrincipalRule < BaseRule
       !policy.policy_document.allows_not_principal.empty?
     end
 
-    violating_policies.map { |policy| policy.logical_resource_id }
+    violating_policies.map(&:logical_resource_id)
   end
 end

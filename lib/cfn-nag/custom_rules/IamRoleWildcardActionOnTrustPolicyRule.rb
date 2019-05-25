@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 require 'cfn-nag/violation'
 require_relative 'base'
 
 class IamRoleWildcardActionOnTrustPolicyRule < BaseRule
-
   def rule_text
     'IAM role should not allow * action on its trust policy'
   end
@@ -20,8 +21,6 @@ class IamRoleWildcardActionOnTrustPolicyRule < BaseRule
       !role.assume_role_policy_document.wildcard_allowed_actions.empty?
     end
 
-    violating_roles.map { |role| role.logical_resource_id}
+    violating_roles.map(&:logical_resource_id)
   end
 end
-
-

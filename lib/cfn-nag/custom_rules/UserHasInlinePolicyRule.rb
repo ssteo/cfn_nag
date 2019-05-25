@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 require 'cfn-nag/violation'
 require_relative 'base'
 
 class UserHasInlinePolicyRule < BaseRule
-
   def rule_text
     'IAM user should not have any inline policies.  Should be centralized Policy object on group'
   end
@@ -16,10 +17,10 @@ class UserHasInlinePolicyRule < BaseRule
   end
 
   def audit_impl(cfn_model)
-    violating_users = cfn_model.iam_users.select do |iam_user|
-      iam_user.policy_objects.size > 0
+    violating_users = cfn_model.iam_users.reject do |iam_user|
+      iam_user.policy_objects.empty?
     end
 
-    violating_users.map { |violating_user| violating_user.logical_resource_id }
+    violating_users.map(&:logical_resource_id)
   end
 end

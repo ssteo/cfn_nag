@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 require 'cfn-nag/violation'
 require_relative 'base'
 
 class SecurityGroupMissingEgressRule < BaseRule
-
   def rule_text
-    'Missing egress rule means all traffic is allowed outbound.  Make this explicit if it is desired configuration'
+    'Missing egress rule means all traffic is allowed outbound.  Make this ' \
+    'explicit if it is desired configuration'
   end
 
   def rule_type
@@ -16,13 +18,10 @@ class SecurityGroupMissingEgressRule < BaseRule
   end
 
   def audit_impl(cfn_model)
-    logical_resource_ids = []
-    cfn_model.security_groups.each do |security_group|
-      if security_group.egresses.empty?
-        logical_resource_ids << security_group.logical_resource_id
-      end
+    violating_security_groups = cfn_model.security_groups.select do |security_group|
+      security_group.egresses.empty?
     end
 
-    logical_resource_ids
+    violating_security_groups.map(&:logical_resource_id)
   end
 end

@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 require 'cfn-nag/violation'
 require_relative 'base'
 
 class IamRoleNotResourceOnPermissionsPolicyRule < BaseRule
-
   def rule_text
     'IAM role should not allow Allow+NotResource'
   end
@@ -23,6 +24,6 @@ class IamRoleNotResourceOnPermissionsPolicyRule < BaseRule
       !violating_policies.empty?
     end
 
-    violating_roles.map { |role| role.logical_resource_id }
+    violating_roles.map(&:logical_resource_id)
   end
 end

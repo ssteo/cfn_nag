@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Copy
 # "MyWebACL": {
 #   "Type": "AWS::WAF::WebACL",
@@ -11,7 +13,6 @@ require 'cfn-nag/violation'
 require_relative 'base'
 
 class WafWebAclDefaultActionRule < BaseRule
-
   def rule_text
     'WebAcl DefaultAction should not be ALLOW'
   end
@@ -29,6 +30,6 @@ class WafWebAclDefaultActionRule < BaseRule
       web_acl.defaultAction['Type'] == 'ALLOW'
     end
 
-    violating_web_acls.map { |web_acl| web_acl.logical_resource_id }
+    violating_web_acls.map(&:logical_resource_id)
   end
 end

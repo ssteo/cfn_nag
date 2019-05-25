@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class RuleDefinition
   WARNING = 'WARN'
   FAILING_VIOLATION = 'FAIL'
@@ -12,9 +14,7 @@ class RuleDefinition
     @message = message
 
     [@id, @type, @message].each do |required|
-      if required.nil?
-        raise 'No parameters to Violation constructor can be nil'
-      end
+      raise 'No parameters to Violation constructor can be nil' if required.nil?
     end
   end
 
@@ -30,7 +30,7 @@ class RuleDefinition
     }
   end
 
-  def ==(other_violation)
-    other_violation.class == self.class && other_violation.to_h == to_h
+  def ==(other)
+    other.class == self.class && other.to_h == to_h
   end
 end
