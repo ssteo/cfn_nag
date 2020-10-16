@@ -1,10 +1,12 @@
 require 'spec_helper'
+require 'cfn-nag/cfn_nag_config'
 require 'cfn-nag/cfn_nag'
+require 'cfn-nag/cfn_nag_logging'
 
 describe CfnNag do
   before(:all) do
     CfnNagLogging.configure_logging(debug: false)
-    @cfn_nag = CfnNag.new
+    @cfn_nag = CfnNag.new(config: CfnNagConfig.new)
   end
 
   context 'when authentication metadata is specified' do
@@ -20,7 +22,8 @@ describe CfnNag do
               Violation.new(
                 id: 'W1', type: Violation::WARNING,
                 message: 'Specifying credentials in the template itself is probably not the safest thing',
-                logical_resource_ids: %w[EC2I4LBA1]
+                logical_resource_ids: %w[EC2I4LBA1],
+                line_numbers: [11]
               )
             ]
           }

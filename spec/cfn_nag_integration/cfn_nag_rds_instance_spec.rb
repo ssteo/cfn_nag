@@ -1,10 +1,11 @@
 require 'spec_helper'
+require 'cfn-nag/cfn_nag_config'
 require 'cfn-nag/cfn_nag'
 
 describe CfnNag do
   before(:all) do
     CfnNagLogging.configure_logging(debug: false)
-    @cfn_nag = CfnNag.new
+    @cfn_nag = CfnNag.new(config: CfnNagConfig.new)
   end
 
   context 'one RDS instance with public access' do
@@ -21,7 +22,8 @@ describe CfnNag do
                             type: Violation::FAILING_VIOLATION,
                             message:
                             'RDS instance should not be publicly accessible',
-                            logical_resource_ids: %w[PublicDB])
+                            logical_resource_ids: %w[PublicDB],
+                            line_numbers: [4])
             ]
           }
         }
@@ -44,14 +46,16 @@ describe CfnNag do
             violations: [
               Violation.new(
                 id: 'F23', type: Violation::FAILING_VIOLATION,
-                message: 'RDS instance master user password must be Ref to NoEcho Parameter. Default credentials are not recommended',
-                logical_resource_ids: %w[BadDb2]
+                message: 'RDS instance master user password must not be a plaintext string or a Ref to a Parameter with a Default value.  Can be Ref to a NoEcho Parameter without a Default, or a dynamic reference to a secretsmanager/ssm-secure value.',
+                logical_resource_ids: %w[BadDb2],
+                line_numbers: [11]
               ),
               Violation.new(id: 'F22',
                             type: Violation::FAILING_VIOLATION,
                             message:
                             'RDS instance should not be publicly accessible',
-                            logical_resource_ids: %w[BadDb2])
+                            logical_resource_ids: %w[BadDb2],
+                            line_numbers: [11])
             ]
           }
         }
@@ -75,13 +79,15 @@ describe CfnNag do
             violations: [
               Violation.new(
                 id: 'F23', type: Violation::FAILING_VIOLATION,
-                message: 'RDS instance master user password must be Ref to NoEcho Parameter. Default credentials are not recommended',
-                logical_resource_ids: %w[BadDb1 BadDb2]
+                message: 'RDS instance master user password must not be a plaintext string or a Ref to a Parameter with a Default value.  Can be Ref to a NoEcho Parameter without a Default, or a dynamic reference to a secretsmanager/ssm-secure value.',
+                logical_resource_ids: %w[BadDb1 BadDb2],
+                line_numbers: [14, 30]
               ),
               Violation.new(
                 id: 'F24', type: Violation::FAILING_VIOLATION,
-                message: 'RDS instance master username must be Ref to NoEcho Parameter. Default credentials are not recommended',
-                logical_resource_ids: %w[BadDb1 BadDb2]
+                message: 'RDS instance master username must not be a plaintext string or a Ref to a Parameter with a Default value.  Can be Ref to a NoEcho Parameter without a Default, or a dynamic reference to a secretsmanager value.',
+                logical_resource_ids: %w[BadDb1 BadDb2],
+                line_numbers: [14, 30]
               )
             ]
           }

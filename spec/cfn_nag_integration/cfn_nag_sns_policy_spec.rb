@@ -1,10 +1,11 @@
 require 'spec_helper'
+require 'cfn-nag/cfn_nag_config'
 require 'cfn-nag/cfn_nag'
 
 describe CfnNag do
   before(:all) do
     CfnNagLogging.configure_logging(debug: false)
-    @cfn_nag = CfnNag.new
+    @cfn_nag = CfnNag.new(config: CfnNagConfig.new)
   end
 
   context 'sns with wildcard principal', :sns do
@@ -23,7 +24,8 @@ describe CfnNag do
                 id: 'F18', type: Violation::FAILING_VIOLATION,
                 message: 'SNS topic policy should not allow * principal',
                 logical_resource_ids: %w[mysnspolicy0 mysnspolicy1
-                                         mysnspolicy2 mysnspolicy3]
+                                         mysnspolicy2 mysnspolicy3],
+                line_numbers: [11, 29, 55, 85]
               )
             ]
           }

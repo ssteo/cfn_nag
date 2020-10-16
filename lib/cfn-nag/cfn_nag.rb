@@ -4,7 +4,9 @@ require_relative 'custom_rule_loader'
 require_relative 'rule_registry'
 require_relative 'violation_filtering'
 require_relative 'template_discovery'
+require_relative 'result_view/stdout_results'
 require_relative 'result_view/simple_stdout_results'
+require_relative 'result_view/colored_stdout_results'
 require_relative 'result_view/json_results'
 require 'cfn-model'
 
@@ -12,24 +14,11 @@ require 'cfn-model'
 class CfnNag
   include ViolationFiltering
 
-  # rubocop:disable Metrics/ParameterLists
-  def initialize(profile_definition: nil,
-                 blacklist_definition: nil,
-                 rule_directory: nil,
-                 allow_suppression: true,
-                 print_suppression: false,
-                 isolate_custom_rule_exceptions: false)
-    @rule_directory = rule_directory
-    @custom_rule_loader = CustomRuleLoader.new(
-      rule_directory: rule_directory,
-      allow_suppression: allow_suppression,
-      print_suppression: print_suppression,
-      isolate_custom_rule_exceptions: isolate_custom_rule_exceptions
-    )
-    @profile_definition = profile_definition
-    @blacklist_definition = blacklist_definition
+  DEFAULT_TEMPLATE_PATTERN = '..*\.json$|..*\.yaml$|..*\.yml$|..*\.template$'
+
+  def initialize(config:)
+    @config = config
   end
-  # rubocop:enable Metrics/ParameterLists
 
   ##
   # Given a file or directory path, emit aggregate results to stdout
@@ -39,16 +28,23 @@ class CfnNag
   def audit_aggregate_across_files_and_render_results(input_path:,
                                                       output_format: 'txt',
                                                       parameter_values_path: nil,
-                                                      template_pattern: '..*\.json|..*\.yaml|..*\.yml|..*\.template')
+                                                      condition_values_path: nil,
+                                                      template_pattern: DEFAULT_TEMPLATE_PATTERN)
+
     aggregate_results = audit_aggregate_across_files input_path: input_path,
                                                      parameter_values_path: parameter_values_path,
+                                                     condition_values_path: condition_values_path,
                                                      template_pattern: template_pattern
 
     render_results(aggregate_results: aggregate_results,
                    output_format: output_format)
 
     aggregate_results.inject(0) do |total_failure_count, results|
-      total_failure_count + results[:file_results][:failure_count]
+      if @config.fail_on_warnings
+        total_failure_count + results[:file_results][:violations].length
+      else
+        total_failure_count + results[:file_results][:failure_count]
+      end
     end
   end
 
@@ -57,8 +53,11 @@ class CfnNag
   #
   def audit_aggregate_across_files(input_path:,
                                    parameter_values_path: nil,
-                                   template_pattern: '..*\.json|..*\.yaml|..*\.yml|..*\.template')
+                                   condition_values_path: nil,
+                                   template_pattern: DEFAULT_TEMPLATE_PATTERN)
     parameter_values_string = parameter_values_path.nil? ? nil : IO.read(parameter_values_path)
+    condition_values_string = condition_values_path.nil? ? nil : IO.read(condition_values_path)
+
     templates = TemplateDiscovery.new.discover_templates(input_json_path: input_path,
                                                          template_pattern: template_pattern)
     aggregate_results = []
@@ -66,7 +65,8 @@ class CfnNag
       aggregate_results << {
         filename: template,
         file_results: audit(cloudformation_string: IO.read(template),
-                            parameter_values_string: parameter_values_string)
+                            parameter_values_string: parameter_values_string,
+                            condition_values_string: condition_values_string)
       }
     end
     aggregate_results
@@ -80,38 +80,64 @@ class CfnNag
   #
   # Return a hash with failure count
   #
-  def audit(cloudformation_string:, parameter_values_string: nil)
+  def audit(cloudformation_string:, parameter_values_string: nil, condition_values_string: nil)
     violations = []
-
     begin
       cfn_model = CfnParser.new.parse cloudformation_string,
-                                      parameter_values_string
-      violations += @custom_rule_loader.execute_custom_rules(cfn_model)
+                                      parameter_values_string,
+                                      true,
+                                      condition_values_string
+      CustomRuleLoader.rule_arguments = @config.rule_arguments
+      violations += @config.custom_rule_loader.execute_custom_rules(
+        cfn_model,
+        @config.custom_rule_loader.rule_definitions
+      )
 
       violations = filter_violations_by_blacklist_and_profile(violations)
-    rescue Psych::SyntaxError, ParserError => parser_error
-      violations << fatal_violation(parser_error.to_s)
+      violations = mark_line_numbers(violations, cfn_model)
+    rescue RuleRepoException, Psych::SyntaxError, ParserError => fatal_error
+      violations << fatal_violation(fatal_error.to_s)
     rescue JSON::ParserError => json_parameters_error
       error = "JSON Parameter values parse error: #{json_parameters_error}"
       violations << fatal_violation(error)
     end
 
+    violations = prune_fatal_violations(violations) if @config.ignore_fatal
     audit_result(violations)
+  end
+
+  def prune_fatal_violations(violations)
+    violations.reject { |violation| violation.type == Violation::FAILING_VIOLATION }
+  end
+
+  def render_results(aggregate_results:,
+                     output_format:)
+    results_renderer(output_format).new.render(aggregate_results)
   end
 
   private
 
+  def mark_line_numbers(violations, cfn_model)
+    violations.each do |violation|
+      violation.logical_resource_ids.each do |logical_resource_id|
+        violation.line_numbers << cfn_model.line_numbers[logical_resource_id]
+      end
+    end
+
+    violations
+  end
+
   def filter_violations_by_blacklist_and_profile(violations)
     violations = filter_violations_by_profile(
-      profile_definition: @profile_definition,
-      rule_definitions: @custom_rule_loader.rule_definitions,
+      profile_definition: @config.profile_definition,
+      rule_definitions: @config.custom_rule_loader.rule_definitions,
       violations: violations
     )
 
     # this must come after - blacklist should always win
     violations = filter_violations_by_blacklist(
-      blacklist_definition: @blacklist_definition,
-      rule_definitions: @custom_rule_loader.rule_definitions,
+      blacklist_definition: @config.blacklist_definition,
+      rule_definitions: @config.custom_rule_loader.rule_definitions,
       violations: violations
     )
     violations
@@ -133,13 +159,9 @@ class CfnNag
                   message: message)
   end
 
-  def render_results(aggregate_results:,
-                     output_format:)
-    results_renderer(output_format).new.render(aggregate_results)
-  end
-
   def results_renderer(output_format)
     registry = {
+      'colortxt' => ColoredStdoutResults,
       'txt' => SimpleStdoutResults,
       'json' => JsonResults
     }

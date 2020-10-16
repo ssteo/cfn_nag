@@ -1,10 +1,11 @@
 require 'spec_helper'
+require 'cfn-nag/cfn_nag_config'
 require 'cfn-nag/cfn_nag'
 
 describe CfnNag do
   before(:all) do
     CfnNagLogging.configure_logging(debug: false)
-    @cfn_nag = CfnNag.new
+    @cfn_nag = CfnNag.new(config: CfnNagConfig.new)
   end
 
   context 'SQS Queue Policy with NotAction' do
@@ -22,7 +23,8 @@ describe CfnNag do
                 id: 'W18', type: Violation::WARNING,
                 message: 'SQS Queue policy should not allow Allow+NotAction',
                 logical_resource_ids: %w[QueuePolicyWithNotAction
-                                         QueuePolicyWithNotAction2]
+                                         QueuePolicyWithNotAction2],
+                line_numbers: [20, 37]
               )
             ]
           }

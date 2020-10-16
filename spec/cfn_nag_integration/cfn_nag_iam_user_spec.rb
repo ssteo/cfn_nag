@@ -1,10 +1,11 @@
 require 'spec_helper'
+require 'cfn-nag/cfn_nag_config'
 require 'cfn-nag/cfn_nag'
 
 describe CfnNag do
   before(:all) do
     CfnNagLogging.configure_logging(debug: false)
-    @cfn_nag = CfnNag.new
+    @cfn_nag = CfnNag.new(config: CfnNagConfig.new)
   end
 
   context 'iam user has no group membership', :sns do
@@ -21,7 +22,8 @@ describe CfnNag do
               Violation.new(id: 'F2000',
                             type: Violation::FAILING_VIOLATION,
                             message: 'User is not assigned to a group',
-                            logical_resource_ids: %w[myuser2])
+                            logical_resource_ids: %w[myuser2],
+                            line_numbers: [4])
             ]
           }
         }

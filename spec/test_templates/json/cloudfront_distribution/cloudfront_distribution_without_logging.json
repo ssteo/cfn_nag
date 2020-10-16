@@ -80,7 +80,19 @@
     "S3Bucket" : {
       "Type" : "AWS::S3::Bucket",
       "Properties" : {
-        "BucketName" : "fakebucketfakebucket"
+        "BucketName" : "fakebucketfakebucket",
+        "LoggingConfiguration": {
+          "DestinationBucketName": "moocow"
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration" : [
+            {
+              "ServerSideEncryptionByDefault" : {
+                "SSEAlgorithm" : "AES256"
+              }
+            }
+          ]
+        }
       }
     }
   }

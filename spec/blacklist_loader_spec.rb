@@ -5,17 +5,41 @@ require 'cfn-nag/rule_registry'
 require 'cfn-nag/violation'
 require 'set'
 
+class Rule1
+  def rule_text
+    'fakeo'
+  end
+
+  def rule_type
+    Violation::WARNING
+  end
+
+  def rule_id
+    'id1'
+  end
+end
+
+class Rule2
+  def rule_text
+    'fakeo2'
+  end
+
+  def rule_type
+    Violation::WARNING
+  end
+
+  def rule_id
+    'id2'
+  end
+end
+
 describe BlackListLoader do
   describe '#load' do
     before(:all) do
       @rule_registry = RuleRegistry.new
 
-      @rule_registry.definition(id: 'id1',
-                                type: Violation::WARNING,
-                                message: 'fakeo')
-      @rule_registry.definition(id: 'id2',
-                                type: Violation::WARNING,
-                                message: 'fakeo2')
+      @rule_registry.definition(Rule1)
+      @rule_registry.definition(Rule2)
     end
 
     context 'empty blacklist' do
@@ -66,7 +90,7 @@ END
 
         expect do
           BlackListLoader.new(@rule_registry).load blacklist_definition: blacklist_definition
-        end.to raise_error # 'FAKEID is not a legal rule identifier'
+        end.to raise_error RuntimeError, /FAKEID1 is not a legal rule identifier/
       end
     end
 
